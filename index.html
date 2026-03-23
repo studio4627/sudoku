@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>평화의 스도쿠 🕊️</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f11;
+    --surface: #1a1a1f;
+    --surface2: #242429;
+    --border: #2e2e36;
+    --accent: #c8f542;
+    --accent-dim: rgba(200,245,66,0.12);
+    --accent-mid: rgba(200,245,66,0.25);
+    --text: #e8e8e0;
+    --text-dim: #888880;
+    --text-hint: #555550;
+    --given: #e8e8e0;
+    --error: #ff5f57;
+    --error-bg: rgba(255,95,87,0.1);
+    --highlight: rgba(200,245,66,0.07);
+    --cell: 52px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 48px;
+    gap: 28px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .logo {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
+  h1 {
+    font-family: 'DM Mono', monospace;
+    font-size: 32px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  /* Stats bar */
+  .stats {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--text-hint);
+    text-transform: uppercase;
+    font-family: 'DM Mono', monospace;
+  }
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .stat-value.accent { color: var(--accent); }
+  .stat-sep {
+    width: 1px;
+    height: 32px;
+    background: var(--border);
+  }
+
+  /* Difficulty selector */
+  .difficulty {
+    display: flex;
+    gap: 8px;
+  }
+  .diff-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .diff-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .diff-btn.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Board */
+  .board-wrap {
+    position: relative;
+  }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(9, var(--cell));
+    grid-template-rows: repeat(9, var(--cell));
+    border: 2px solid var(--accent);
+    border-radius: 4px;
+    overflow: hidden;
+    gap: 0;
+  }
+
+  .cell {
+    width: var(--cell);
+    height: var(--cell);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Box borders (3x3) */
+  .cell:nth-child(3n) { border-right-color: var(--accent); border-right-width: 1.5px; }
+  .cell:nth-child(9n) { border-right-color: var(--border); border-right-width: 1px; }
+  .cell:nth-child(n+19):nth-child(-n+27) { border-bottom-color: var(--accent); border-bottom-width: 1.5px; }
+  .cell:nth-child(n+46):nth-child(-n+54) { border-bottom-color: var(--accent); border-bottom-width: 1.5px; }
+
+  .cell.given {
+    color: var(--given);
+    font-weight: 500;
+    cursor: default;
+  }
+  .cell.selected {
+    background: var(--accent-dim) !important;
+    outline: none;
+  }
+  .cell.highlighted { background: var(--highlight); }
+  .cell.same-number { background: rgba(200,245,66,0.1); color: var(--accent); }
+  .cell.error {
+    background: var(--error-bg) !important;
+    color: var(--error) !important;
+  }
+  .cell:hover:not(.given):not(.selected) {
+    background: var(--surface2);
+  }
+
+  /* Pencil marks */
+  .cell .pencil-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    width: 100%;
+    height: 100%;
+    padding: 2px;
+    gap: 0;
+  }
+  .cell .pencil-mark {
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-hint);
+    font-family: 'DM Mono', monospace;
+    line-height: 1;
+  }
+
+  /* Number pad */
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(5, 52px);
+    gap: 8px;
+  }
+  .num-btn {
+    width: 52px;
+    height: 52px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .num-btn:hover { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+  .num-btn:active { transform: scale(0.94); }
+  .num-btn.erase {
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .num-btn.pencil-toggle {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-family: 'Noto Sans KR', sans-serif;
+    grid-column: span 1;
+  }
+  .num-btn.pencil-toggle.active {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 12px;
+  }
+  .ctrl-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    padding: 8px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ctrl-btn:hover { border-color: var(--text-dim); color: var(--text); }
+  .ctrl-btn.primary {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+  .ctrl-btn.primary:hover { background: var(--accent-mid); }
+
+  /* Win overlay */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,12,0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+    backdrop-filter: blur(6px);
+  }
+  .overlay.show { opacity: 1; pointer-events: all; }
+  .win-card {
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    padding: 40px 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    transform: translateY(20px);
+    transition: transform 0.4s;
+  }
+  .overlay.show .win-card { transform: translateY(0); }
+  .win-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 28px;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+  .win-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 42px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+  .win-sub {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .win-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+  }
+
+  /* Hint count */
+  .hints-left {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-hint);
+    letter-spacing: 0.1em;
+    text-align: center;
+  }
+
+  /* Responsive */
+  @media (max-width: 520px) {
+    :root { --cell: 38px; }
+    h1 { font-size: 24px; }
+    .cell { font-size: 15px; }
+    .num-btn { width: 44px; height: 44px; font-size: 17px; }
+    .numpad { grid-template-columns: repeat(5, 44px); gap: 6px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">Puzzle Game</span>
+  <h1>수도쿠</h1>
+</header>
+
+<div class="stats">
+  <div class="stat">
+    <span class="stat-label">시간</span>
+    <span class="stat-value accent" id="timer">00:00</span>
+  </div>
+  <div class="stat-sep"></div>
+  <div class="stat">
+    <span class="stat-label">실수</span>
+    <span class="stat-value" id="mistake-count">0</span>
+  </div>
+  <div class="stat-sep"></div>
+  <div class="stat">
+    <span class="stat-label">난이도</span>
+    <span class="stat-value" id="diff-label">보통</span>
+  </div>
+</div>
+
+<div class="difficulty">
+  <button class="diff-btn" data-diff="easy">쉬움</button>
+  <button class="diff-btn active" data-diff="medium">보통</button>
+  <button class="diff-btn" data-diff="hard">어려움</button>
+</div>
+
+<div class="board-wrap">
+  <div class="board" id="board"></div>
+</div>
+
+<div class="numpad" id="numpad">
+  <button class="num-btn" data-n="1">1</button>
+  <button class="num-btn" data-n="2">2</button>
+  <button class="num-btn" data-n="3">3</button>
+  <button class="num-btn" data-n="4">4</button>
+  <button class="num-btn" data-n="5">5</button>
+  <button class="num-btn" data-n="6">6</button>
+  <button class="num-btn" data-n="7">7</button>
+  <button class="num-btn" data-n="8">8</button>
+  <button class="num-btn" data-n="9">9</button>
+  <button class="num-btn erase" id="erase-btn">지우기</button>
+  <button class="num-btn pencil-toggle" id="pencil-btn">메모</button>
+</div>
+
+<div class="controls">
+  <button class="ctrl-btn" id="hint-btn">힌트</button>
+  <button class="ctrl-btn primary" id="new-btn">새 게임</button>
+</div>
+<div class="hints-left" id="hints-left">힌트 남은 횟수: 3</div>
+
+<div class="overlay" id="overlay">
+  <div class="win-card">
+    <div class="win-title">완성!</div>
+    <div class="win-time" id="win-time">00:00</div>
+    <div class="win-sub" id="win-sub">오류 0회 · 보통 난이도</div>
+    <div class="win-actions">
+      <button class="ctrl-btn primary" onclick="newGame()">다시 하기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────
+let solution = [];
+let board = [];       // current board (0 = empty)
+let given = [];       // boolean grid (true = given clue)
+let pencilMarks = []; // Set[81]
+let selected = -1;
+let pencilMode = false;
+let mistakes = 0;
+let hintsLeft = 3;
+let timerSec = 0;
+let timerInterval = null;
+let difficulty = 'medium';
+let gameOver = false;
+
+const diffRemove = { easy: 30, medium: 45, hard: 54 };
+const diffLabels = { easy: '쉬움', medium: '보통', hard: '어려움' };
+
+// ─── Sudoku Generator ────────────────────────────────────
+function generateSolution() {
+  const grid = Array(81).fill(0);
+  fillGrid(grid);
+  return grid;
+}
+
+function fillGrid(grid) {
+  const idx = grid.indexOf(0);
+  if (idx === -1) return true;
+  const nums = shuffle([1,2,3,4,5,6,7,8,9]);
+  for (const n of nums) {
+    if (isValid(grid, idx, n)) {
+      grid[idx] = n;
+      if (fillGrid(grid)) return true;
+      grid[idx] = 0;
+    }
+  }
+  return false;
+}
+
+function isValid(grid, idx, n) {
+  const row = Math.floor(idx / 9);
+  const col = idx % 9;
+  const boxR = Math.floor(row / 3) * 3;
+  const boxC = Math.floor(col / 3) * 3;
+  for (let i = 0; i < 9; i++) {
+    if (grid[row * 9 + i] === n) return false;
+    if (grid[i * 9 + col] === n) return false;
+    if (grid[(boxR + Math.floor(i/3)) * 9 + boxC + (i%3)] === n) return false;
+  }
+  return true;
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function countSolutions(grid, limit = 2) {
+  const idx = grid.indexOf(0);
+  if (idx === -1) return 1;
+  let count = 0;
+  for (let n = 1; n <= 9; n++) {
+    if (isValid(grid, idx, n)) {
+      grid[idx] = n;
+      count += countSolutions(grid, limit);
+      grid[idx] = 0;
+      if (count >= limit) return count;
+    }
+  }
+  return count;
+}
+
+function createPuzzle(sol, removeCount) {
+  const puzzle = [...sol];
+  const positions = shuffle([...Array(81).keys()]);
+  let removed = 0;
+  for (const pos of positions) {
+    if (removed >= removeCount) break;
+    const backup = puzzle[pos];
+    puzzle[pos] = 0;
+    const copy = [...puzzle];
+    if (countSolutions(copy) === 1) {
+      removed++;
+    } else {
+      puzzle[pos] = backup;
+    }
+  }
+  return puzzle;
+}
+
+// ─── Game Init ───────────────────────────────────────────
+function newGame() {
+  clearInterval(timerInterval);
+  timerSec = 0;
+  mistakes = 0;
+  hintsLeft = 3;
+  gameOver = false;
+  pencilMode = false;
+  selected = -1;
+  document.getElementById('pencil-btn').classList.remove('active');
+  document.getElementById('overlay').classList.remove('show');
+
+  solution = generateSolution();
+  const puzzle = createPuzzle(solution, diffRemove[difficulty]);
+  board = [...puzzle];
+  given = puzzle.map(v => v !== 0);
+  pencilMarks = Array(81).fill(null).map(() => new Set());
+
+  updateMistakes();
+  updateHints();
+  document.getElementById('diff-label').textContent = diffLabels[difficulty];
+  renderBoard();
+
+  timerInterval = setInterval(() => {
+    if (!gameOver) {
+      timerSec++;
+      updateTimer();
+    }
+  }, 1000);
+}
+
+// ─── Render ──────────────────────────────────────────────
+function renderBoard() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+  for (let i = 0; i < 81; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.dataset.idx = i;
+
+    if (given[i]) {
+      cell.classList.add('given');
+      cell.textContent = board[i];
+    } else if (board[i] !== 0) {
+      cell.textContent = board[i];
+      if (!isPlacementValid(i, board[i])) {
+        cell.classList.add('error');
+      }
+    } else if (pencilMarks[i].size > 0) {
+      const pg = document.createElement('div');
+      pg.className = 'pencil-grid';
+      for (let m = 1; m <= 9; m++) {
+        const pm = document.createElement('span');
+        pm.className = 'pencil-mark';
+        pm.textContent = pencilMarks[i].has(m) ? m : '';
+        pg.appendChild(pm);
+      }
+      cell.appendChild(pg);
+    }
+
+    if (i === selected) cell.classList.add('selected');
+
+    cell.addEventListener('click', () => selectCell(i));
+    boardEl.appendChild(cell);
+  }
+  applyHighlights();
+}
+
+function applyHighlights() {
+  if (selected === -1) return;
+  const cells = document.querySelectorAll('.cell');
+  const row = Math.floor(selected / 9);
+  const col = selected % 9;
+  const boxR = Math.floor(row / 3) * 3;
+  const boxC = Math.floor(col / 3) * 3;
+  const selVal = board[selected];
+
+  for (let i = 0; i < 81; i++) {
+    if (i === selected) continue;
+    const r = Math.floor(i / 9), c = i % 9;
+    const same = (r === row || c === col ||
+      (Math.floor(r/3)*3 === boxR && Math.floor(c/3)*3 === boxC));
+    if (same) cells[i].classList.add('highlighted');
+    if (selVal && selVal === board[i]) cells[i].classList.add('same-number');
+  }
+}
+
+// ─── Input ───────────────────────────────────────────────
+function selectCell(idx) {
+  if (gameOver) return;
+  selected = idx;
+  renderBoard();
+}
+
+function placeNumber(n) {
+  if (selected === -1 || given[selected] || gameOver) return;
+
+  if (pencilMode) {
+    if (board[selected] !== 0) return;
+    if (pencilMarks[selected].has(n)) pencilMarks[selected].delete(n);
+    else pencilMarks[selected].add(n);
+    renderBoard();
+    return;
+  }
+
+  pencilMarks[selected].clear();
+  board[selected] = n;
+
+  // Clear pencil marks in same row/col/box
+  const row = Math.floor(selected / 9);
+  const col = selected % 9;
+  const boxR = Math.floor(row/3)*3;
+  const boxC = Math.floor(col/3)*3;
+  for (let i = 0; i < 81; i++) {
+    const r = Math.floor(i/9), c = i%9;
+    const inGroup = (r===row || c===col ||
+      (Math.floor(r/3)*3===boxR && Math.floor(c/3)*3===boxC));
+    if (inGroup && i !== selected) pencilMarks[i].delete(n);
+  }
+
+  if (n !== 0 && !isPlacementValid(selected, n)) {
+    mistakes++;
+    updateMistakes();
+  }
+
+  renderBoard();
+  checkWin();
+}
+
+function eraseCell() {
+  if (selected === -1 || given[selected] || gameOver) return;
+  board[selected] = 0;
+  pencilMarks[selected].clear();
+  renderBoard();
+}
+
+function isPlacementValid(idx, n) {
+  const row = Math.floor(idx / 9);
+  const col = idx % 9;
+  const boxR = Math.floor(row/3)*3;
+  const boxC = Math.floor(col/3)*3;
+  for (let i = 0; i < 81; i++) {
+    if (i === idx) continue;
+    const r = Math.floor(i/9), c = i%9;
+    const inGroup = (r===row || c===col ||
+      (Math.floor(r/3)*3===boxR && Math.floor(c/3)*3===boxC));
+    if (inGroup && board[i] === n) return false;
+  }
+  return true;
+}
+
+// ─── Hint ────────────────────────────────────────────────
+function giveHint() {
+  if (hintsLeft <= 0 || gameOver) return;
+  // Find a random empty or wrong cell
+  let candidates = [];
+  for (let i = 0; i < 81; i++) {
+    if (!given[i] && board[i] !== solution[i]) candidates.push(i);
+  }
+  if (!candidates.length) return;
+  const idx = candidates[Math.floor(Math.random() * candidates.length)];
+  selected = idx;
+  board[idx] = solution[idx];
+  given[idx] = true;
+  pencilMarks[idx].clear();
+  hintsLeft--;
+  updateHints();
+  renderBoard();
+  checkWin();
+}
+
+// ─── Win check ───────────────────────────────────────────
+function checkWin() {
+  for (let i = 0; i < 81; i++) {
+    if (board[i] !== solution[i]) return;
+  }
+  gameOver = true;
+  clearInterval(timerInterval);
+  setTimeout(() => {
+    document.getElementById('win-time').textContent = formatTime(timerSec);
+    document.getElementById('win-sub').textContent =
+      `오류 ${mistakes}회 · ${diffLabels[difficulty]} 난이도`;
+    document.getElementById('overlay').classList.add('show');
+  }, 300);
+}
+
+// ─── UI Updates ──────────────────────────────────────────
+function updateTimer() {
+  document.getElementById('timer').textContent = formatTime(timerSec);
+}
+
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function updateMistakes() {
+  document.getElementById('mistake-count').textContent = mistakes;
+}
+
+function updateHints() {
+  document.getElementById('hints-left').textContent = `힌트 남은 횟수: ${hintsLeft}`;
+}
+
+// ─── Events ──────────────────────────────────────────────
+document.getElementById('numpad').addEventListener('click', e => {
+  const btn = e.target.closest('.num-btn');
+  if (!btn) return;
+  if (btn.id === 'erase-btn') { eraseCell(); return; }
+  if (btn.id === 'pencil-btn') {
+    pencilMode = !pencilMode;
+    btn.classList.toggle('active', pencilMode);
+    return;
+  }
+  const n = parseInt(btn.dataset.n);
+  if (n) placeNumber(n);
+});
+
+document.getElementById('hint-btn').addEventListener('click', giveHint);
+document.getElementById('new-btn').addEventListener('click', newGame);
+
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    difficulty = btn.dataset.diff;
+    newGame();
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (gameOver) return;
+  const k = e.key;
+  if (k >= '1' && k <= '9') { placeNumber(parseInt(k)); return; }
+  if (k === '0' || k === 'Backspace' || k === 'Delete') { eraseCell(); return; }
+  if (k === 'p' || k === 'P') {
+    pencilMode = !pencilMode;
+    document.getElementById('pencil-btn').classList.toggle('active', pencilMode);
+    return;
+  }
+  if (selected === -1) { selected = 0; renderBoard(); return; }
+  const moves = { ArrowUp: -9, ArrowDown: 9, ArrowLeft: -1, ArrowRight: 1 };
+  if (moves[k] !== undefined) {
+    e.preventDefault();
+    let next = selected + moves[k];
+    if (next < 0) next += 81;
+    if (next >= 81) next -= 81;
+    selected = next;
+    renderBoard();
+  }
+});
+
+// Start
+newGame();
+</script>
+</body>
+</html>
